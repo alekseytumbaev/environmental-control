@@ -1,0 +1,13 @@
+version: '3.1'
+services:
+  db:
+    container_name: environmental-control-db
+    image: postgres:16-alpine
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=environmental-control
+    volumes:
+      - /var/lib/postgresql/data
