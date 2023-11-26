@@ -1,4 +1,4 @@
 databaseChangeLog:
   - include:
-      file: schema.sql
+      file: plsql.sql
       relativeToChangelogFile: true
