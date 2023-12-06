@@ -1,7 +1,5 @@
 -- Триггер, срабатывающий при добавлении данных в таблицу "LogGas".
--- Если по значению, которое пытаются записать, предприятие превысило норму газа - выводится сообщение об этом.
--- При этом значение записывается в любом случае
-CREATE OR REPLACE FUNCTION write_warning_on_log_gas_over_limit()
+CREATE OR REPLACE FUNCTION write_incident_on_log_gas_over_limit()
     RETURNS TRIGGER AS
 $$
 BEGIN
@@ -37,25 +35,25 @@ BEGIN
         FROM "PollutionGases" pg
         WHERE pg."PK_PollutionGases" = NEW."PK_PollutionGases";
 
-        IF curr_gas_emission + (NEW."Indicator" * gas_concentrate) > company_norm_gas_emission THEN
-            RAISE NOTICE 'Предприятие превысило норму газа!';
+        IF curr_gas_emission + (NEW."Indicator" * gas_concentrate) > company_norm_gas_emission
+            OR curr_gas_emission IS NULL AND NEW."Indicator" * gas_concentrate > company_norm_gas_emission THEN
+            INSERT INTO "Incidents" ("PK_LogGas", "PK_Company")
+            VALUES (NEW."PK_LogGas", company_id);
         END IF;
     END;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER write_warning_on_log_gas_over_limit_trigger
+CREATE TRIGGER write_incident_on_log_gas_over_limit_trigger
     BEFORE INSERT
     ON "LogGas"
     FOR EACH ROW
-EXECUTE PROCEDURE write_warning_on_log_gas_over_limit();
+EXECUTE PROCEDURE write_incident_on_log_gas_over_limit();
 
 
 -- Триггер, срабатывающий при добавлении данных в таблицу "LogWater".
--- Если по значению, которое пытаются записать, предприятие превысило норму выбросов в воду - выводится сообщение об этом.
--- При этом значение записывается в любом случае
-CREATE OR REPLACE FUNCTION write_warning_on_log_water_over_limit()
+CREATE OR REPLACE FUNCTION write_incident_on_log_water_over_limit()
     RETURNS TRIGGER AS
 $$
 BEGIN
@@ -83,19 +81,21 @@ BEGIN
                        GROUP BY lw."PK_Device") latest_logs
                       ON lw."PK_Device" = latest_logs."PK_Device" AND lw."date_lastUpdate" = latest_logs.latest_date;
 
-        IF curr_water_emission + NEW."Indecator" > company_norm_water_emission THEN
-            RAISE NOTICE 'Предприятие превысило норму выбросов в воду!';
+        IF curr_water_emission + NEW."Indecator" > company_norm_water_emission
+            OR curr_water_emission IS NULL AND NEW."Indecator" > company_norm_water_emission THEN
+            INSERT INTO "Incidents" ("PK_LogWater", "PK_Company")
+            VALUES (NEW."PK_LogWater", company_id);
         END IF;
     END;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER write_warning_on_log_water_over_limit_trigger
+CREATE TRIGGER write_incident_on_log_water_over_limit_trigger
     BEFORE INSERT
     ON "LogWater"
     FOR EACH ROW
-EXECUTE PROCEDURE write_warning_on_log_water_over_limit();
+EXECUTE PROCEDURE write_incident_on_log_water_over_limit();
 
 -- Триггер: удаление сотрудника.
 -- Проверяет, что нет нарушений на предприятии, за которое он ответственен, если есть - не дает удалить
@@ -182,9 +182,16 @@ DECLARE
     type_id INTEGER;
 BEGIN
     -- добавляем тип
-    INSERT INTO "Type_Company" ("name")
-    VALUES (type_name)
-    RETURNING "PK_Type_Company" INTO type_id;
+    SELECT "PK_Type_Company"
+    INTO type_id
+    FROM "Type_Company"
+    WHERE "name" = type_name;
+
+    IF NOT FOUND THEN
+        INSERT INTO "Type_Company" ("name")
+        VALUES (type_name)
+        RETURNING "PK_Type_Company" INTO type_id;
+    END IF;
 
     -- добавляем компанию
     INSERT INTO "Company" ("name", "date_foundation", "purpose_prodaction", "norm_gas_emission", "norm_water_emisson")
@@ -240,10 +247,17 @@ BEGIN
         RAISE EXCEPTION 'Компании с таким ID не существует!';
     END IF;
 
-    -- добавляем производителя
-    INSERT INTO "Brand" ("name")
-    VALUES (brand_name)
-    RETURNING "PK_Brand" INTO brand_id;
+    -- проверка на существование производителя
+    SELECT "PK_Brand"
+    INTO brand_id
+    FROM "Brand"
+    WHERE "name" = brand_name;
+
+    IF NOT FOUND THEN
+        INSERT INTO "Brand" ("name")
+        VALUES (brand_name)
+        RETURNING "PK_Brand" INTO brand_id;
+    END IF;
 
     -- добавляем датчик
     INSERT INTO "SensorGas" ("name", "sensetivity", "marks", "PK_Brand")
@@ -291,10 +305,17 @@ BEGIN
         RAISE EXCEPTION 'Компании с таким ID не существует!';
     END IF;
 
-    -- добавляем производителя
-    INSERT INTO "Brand" ("name")
-    VALUES (brand_name)
-    RETURNING "PK_Brand" INTO brand_id;
+    -- проверка на существование производителя
+    SELECT "PK_Brand"
+    INTO brand_id
+    FROM "Brand"
+    WHERE "name" = brand_name;
+
+    IF NOT FOUND THEN
+        INSERT INTO "Brand" ("name")
+        VALUES (brand_name)
+        RETURNING "PK_Brand" INTO brand_id;
+    END IF;
 
     -- добавляем датчик
     INSERT INTO "SensorWater" ("name", "sensitivity", "mark", "PK_Brand")
@@ -307,4 +328,94 @@ BEGIN
     VALUES (device_long_life, device_date_installed, device_date_last_serv, company_id, NULL, added_sensor_id,
             device_serial_number);
 END ;
+$$ LANGUAGE plpgsql;
+
+
+-- процедура, генерирующая показания датчиков для компании
+CREATE OR REPLACE PROCEDURE generate_logs(company_id integer)
+AS
+$$
+DECLARE
+    water_device_ids INTEGER[];
+    water_sensor_id  INTEGER;
+    gas_device_ids   INTEGER[];
+    gas_sensor_id    INTEGER;
+    pollution_gas_id INTEGER;
+    i                INTEGER;
+BEGIN
+    --Добавляем лог воды
+    SELECT ARRAY(
+                   SELECT "PK_Device"
+                   FROM "Device"
+                   WHERE "PK_Company" = company_id
+                     AND "PK_SensorWater" IS NOT NULL)
+    INTO water_device_ids;
+
+    IF array_length(water_device_ids, 1) IS NULL THEN
+        CALL add_water_sensor(
+                'water sensor',
+                1,
+                'water sensor mark',
+                'water brand',
+                '2025-01-01',
+                CURRENT_DATE,
+                CURRENT_DATE,
+                'watersensor123',
+                company_id,
+                water_sensor_id);
+
+        SELECT ARRAY(
+                       SELECT "PK_Device"
+                       FROM "Device"
+                       WHERE "PK_SensorWater" = water_sensor_id)
+        INTO water_device_ids;
+    END IF;
+
+    FOR i IN 1..array_length(water_device_ids, 1)
+        LOOP
+            INSERT INTO "LogWater" ("PK_Device", "date_lastUpdate", "Indecator")
+            VALUES (water_device_ids[i], CURRENT_DATE, random() * 100);
+        END LOOP;
+
+
+    -- добавляем лог воздуха
+    SELECT ARRAY(
+                   SELECT "PK_Device"
+                   FROM "Device"
+                   WHERE "PK_Company" = company_id
+                     AND "PK_SensorGase" IS NOT NULL)
+    INTO gas_device_ids;
+
+    IF array_length(gas_device_ids, 1) IS NULL THEN
+        CALL add_gas_sensor(
+                'gas sensor',
+                1,
+                'gas sensor mark',
+                'gas brand',
+                '2025-01-01',
+                CURRENT_DATE,
+                CURRENT_DATE,
+                'gassensor123',
+                company_id,
+                gas_sensor_id);
+
+        SELECT ARRAY(
+                       SELECT "PK_Device"
+                       FROM "Device"
+                       WHERE "PK_SensorGase" = gas_sensor_id)
+        INTO gas_device_ids;
+    END IF;
+
+    FOR i IN 1..array_length(gas_device_ids, 1)
+        LOOP
+            SELECT "PK_PollutionGases"
+            INTO pollution_gas_id
+            FROM "PollutionGases"
+            ORDER BY random()
+            LIMIT 1;
+
+            INSERT INTO "LogGas" ("PK_Device", "date_lastUpdate", "Indicator", "PK_PollutionGases")
+            VALUES (water_device_ids[i], CURRENT_DATE, random() * 100, pollution_gas_id);
+        END LOOP;
+END;
 $$ LANGUAGE plpgsql

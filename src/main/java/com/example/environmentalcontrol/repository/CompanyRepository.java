@@ -85,4 +85,7 @@ public interface CompanyRepository extends JpaRepository<Company, Integer> {
             @Param("employee_number_passport") String employeeNumberPassport,
             @Param("employee_type_activity") String employeeTypeActivity
     );
+
+    @Procedure(procedureName = "generate_logs")
+    void generateLogsForCompany(@Param("company_id") Integer companyId);
 }

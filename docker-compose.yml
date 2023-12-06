@@ -1,5 +1,18 @@
 version: '3.1'
 services:
+
+  backend:
+    container_name: environmental-control-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/environmental-control
+    depends_on:
+      - db
+
   db:
     container_name: environmental-control-db
     image: postgres:16-alpine
