@@ -86,6 +86,13 @@ public interface CompanyRepository extends JpaRepository<Company, Integer> {
             @Param("employee_type_activity") String employeeTypeActivity
     );
 
+    /**
+     * Процедура генерирующая показания для компании с переданным id.
+     * Если у компании нет устройств, то устройства тоже будут сгенерированы.
+     * Генерируется от 30 до 100 устройств, для каждого устройства генерируется от 30 до 100 показателей с периодичностью в один день.
+     * То есть, за сегодняшний день, вчерашний, позавчерашний и так до 30.
+     * Значения каждого лога - от 1 до 100.
+     */
     @Procedure(procedureName = "generate_logs")
     void generateLogsForCompany(@Param("company_id") Integer companyId);
 }

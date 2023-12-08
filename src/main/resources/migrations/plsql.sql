@@ -342,6 +342,7 @@ DECLARE
     gas_sensor_id    INTEGER;
     pollution_gas_id INTEGER;
     i                INTEGER;
+    j                INTEGER;
 BEGIN
     --Добавляем лог воды
     SELECT ARRAY(
@@ -352,29 +353,34 @@ BEGIN
     INTO water_device_ids;
 
     IF array_length(water_device_ids, 1) IS NULL THEN
-        CALL add_water_sensor(
-                'water sensor',
-                1,
-                'water sensor mark',
-                'water brand',
-                '2025-01-01',
-                CURRENT_DATE,
-                CURRENT_DATE,
-                'watersensor123',
-                company_id,
-                water_sensor_id);
+        FOR i IN 1..floor(random() * (100 - 30) + 30)
+            LOOP
+                CALL add_water_sensor(
+                        ('water sensor' || i)::varchar(50),
+                        floor(random() * (3 - 1) + 1)::integer,
+                        'water sensor mark',
+                        'water brand',
+                        '2025-01-01',
+                        CURRENT_DATE,
+                        CURRENT_DATE,
+                        ('watersensor12' || i)::varchar(50),
+                        company_id,
+                        water_sensor_id);
+            END LOOP;
 
         SELECT ARRAY(
                        SELECT "PK_Device"
-                       FROM "Device"
-                       WHERE "PK_SensorWater" = water_sensor_id)
+                       FROM "Device")
         INTO water_device_ids;
     END IF;
 
     FOR i IN 1..array_length(water_device_ids, 1)
         LOOP
-            INSERT INTO "LogWater" ("PK_Device", "date_lastUpdate", "Indecator")
-            VALUES (water_device_ids[i], CURRENT_DATE, random() * 100);
+            FOR j IN 1..30
+                LOOP
+                    INSERT INTO "LogWater" ("PK_Device", "date_lastUpdate", "Indecator")
+                    VALUES (water_device_ids[i], CURRENT_DATE - (30 - j), random() * 100);
+                END LOOP;
         END LOOP;
 
 
@@ -387,35 +393,40 @@ BEGIN
     INTO gas_device_ids;
 
     IF array_length(gas_device_ids, 1) IS NULL THEN
-        CALL add_gas_sensor(
-                'gas sensor',
-                1,
-                'gas sensor mark',
-                'gas brand',
-                '2025-01-01',
-                CURRENT_DATE,
-                CURRENT_DATE,
-                'gassensor123',
-                company_id,
-                gas_sensor_id);
+        FOR i IN 1..floor(random() * (100 - 30) + 30)
+            LOOP
+                CALL add_gas_sensor(
+                        ('gas sensor ' || i)::varchar(50),
+                        floor(random() * (3 - 1) + 1)::integer,
+                        'gas sensor mark',
+                        'gas brand',
+                        '2025-01-01',
+                        CURRENT_DATE,
+                        CURRENT_DATE,
+                        ('gassensor' || i)::varchar(50),
+                        company_id,
+                        gas_sensor_id);
+            END LOOP;
 
         SELECT ARRAY(
                        SELECT "PK_Device"
-                       FROM "Device"
-                       WHERE "PK_SensorGase" = gas_sensor_id)
+                       FROM "Device")
         INTO gas_device_ids;
     END IF;
 
     FOR i IN 1..array_length(gas_device_ids, 1)
         LOOP
-            SELECT "PK_PollutionGases"
-            INTO pollution_gas_id
-            FROM "PollutionGases"
-            ORDER BY random()
-            LIMIT 1;
+            FOR j IN 1..30
+                LOOP
+                    SELECT "PK_PollutionGases"
+                    INTO pollution_gas_id
+                    FROM "PollutionGases"
+                    ORDER BY random()
+                    LIMIT 1;
 
-            INSERT INTO "LogGas" ("PK_Device", "date_lastUpdate", "Indicator", "PK_PollutionGases")
-            VALUES (water_device_ids[i], CURRENT_DATE, random() * 100, pollution_gas_id);
+                    INSERT INTO "LogGas" ("PK_Device", "date_lastUpdate", "Indicator", "PK_PollutionGases")
+                    VALUES (gas_device_ids[i], CURRENT_DATE - (30 - j), random() * 100, pollution_gas_id);
+                END LOOP;
         END LOOP;
 END;
 $$ LANGUAGE plpgsql

@@ -40,5 +40,10 @@ public interface ResponsibleSotrudRepository extends JpaRepository<ResponsibleSo
             """, nativeQuery = true)
     List<ResponsibleSotrud> findEmployeesWithPollutionInWaterOrAir();
 
+    /**
+     * Находит сотрудника компании по ее id.
+     * @param id id компании, сотрудника которой нужно найти
+     * @return сотрудник компании
+     */
     ResponsibleSotrud findByCompany_Id(Integer id);
 }
