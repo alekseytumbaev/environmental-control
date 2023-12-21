@@ -6,8 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.query.Procedure;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 
 public interface CompanyRepository extends JpaRepository<Company, Integer> {
@@ -70,7 +70,7 @@ public interface CompanyRepository extends JpaRepository<Company, Integer> {
     @Procedure(procedureName = "add_company")
     Integer addCompany(
             @Param("company_name") String companyName,
-            @Param("company_date_foundation") Date companyDateFoundation,
+            @Param("company_date_foundation") LocalDate companyDateFoundation,
             @Param("purpose_production") String purposeProduction,
             @Param("company_norm_gas_emission") Float companyNormGasEmission,
             @Param("company_norm_water_emission") Float companyNormWaterEmission,

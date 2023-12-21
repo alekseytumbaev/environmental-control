@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -38,7 +39,7 @@ class CompanyRepositoryTest {
     void testAddCompany() {
         int id = companyRepo.addCompany(
                 "test",
-                new Date(),
+                LocalDate.now(),
                 "test",
                 1.0f,
                 1.0f,
