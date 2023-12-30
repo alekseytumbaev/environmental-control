@@ -1,6 +1,5 @@
 package com.example.environmentalcontrol.repository;
 
-import com.example.environmentalcontrol.entity.SensorGas;
 import com.example.environmentalcontrol.entity.SensorWater;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
