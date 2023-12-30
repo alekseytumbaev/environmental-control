@@ -6,15 +6,30 @@ BEGIN
     DECLARE
         company_norm_gas_emission REAL;
         company_id                INTEGER;
+        curr_company_name         VARCHAR;
         curr_gas_emission         REAL;
+        curr_device_serial_number VARCHAR;
+        curr_founder_fio          VARCHAR;
+        curr_employee_fio         VARCHAR;
         gas_concentrate           INTEGER;
     BEGIN
-        -- получаем id и норму газа предприятия, показания для которого записываем
-        SELECT c."PK_Company", c."norm_gas_emission"
-        INTO company_id, company_norm_gas_emission
+        -- получаем id, наименование и норму газа предприятия, показания для которого записываем
+        SELECT c."PK_Company", c."norm_gas_emission", c."name", d."serial_number"
+        INTO company_id, company_norm_gas_emission, curr_company_name, curr_device_serial_number
         FROM "Device" d
                  JOIN "Company" c ON d."PK_Company" = c."PK_Company"
         WHERE d."PK_Device" = NEW."PK_Device";
+
+        -- получаем информацию о сотрудниках
+        SELECT f."FIO"
+        INTO curr_founder_fio
+        FROM "Founders" f
+        WHERE f."PK_Company" = company_id;
+
+        SELECT r."FIO"
+        INTO curr_employee_fio
+        FROM "ResponsibleSotrud" r
+        WHERE r."PK_Company" = company_id;
 
         -- получаем текущие показания
         SELECT SUM(lg."Indicator" * pg."consentrate")
@@ -37,8 +52,10 @@ BEGIN
 
         IF curr_gas_emission + (NEW."Indicator" * gas_concentrate) > company_norm_gas_emission
             OR curr_gas_emission IS NULL AND NEW."Indicator" * gas_concentrate > company_norm_gas_emission THEN
-            INSERT INTO "Incidents" ("PK_LogGas", "PK_Company")
-            VALUES (NEW."PK_LogGas", company_id);
+            INSERT INTO "Incidents" (incident_date, log_water, log_gas, company_name, founder_fio,
+                                     responsible_employee_fio, device_serial_number)
+            VALUES (current_date, null, NEW."Indicator", curr_company_name, curr_founder_fio, curr_employee_fio,
+                    curr_device_serial_number);
         END IF;
     END;
     RETURN NEW;
@@ -61,13 +78,28 @@ BEGIN
         company_norm_water_emission REAL;
         company_id                  INTEGER;
         curr_water_emission         REAL;
+        curr_company_name           VARCHAR;
+        curr_device_serial_number   VARCHAR;
+        curr_founder_fio            VARCHAR;
+        curr_employee_fio           VARCHAR;
     BEGIN
         -- получаем id и норму газа предприятия, показания для которого записываем
-        SELECT c."PK_Company", c."norm_water_emisson"
-        INTO company_id, company_norm_water_emission
+        SELECT c."PK_Company", c."norm_water_emisson", c."name", d."serial_number"
+        INTO company_id, company_norm_water_emission, curr_company_name, curr_device_serial_number
         FROM "Device" d
                  JOIN "Company" c ON d."PK_Company" = c."PK_Company"
         WHERE d."PK_Device" = NEW."PK_Device";
+
+        -- получаем информацию о сотрудниках
+        SELECT f."FIO"
+        INTO curr_founder_fio
+        FROM "Founders" f
+        WHERE f."PK_Company" = company_id;
+
+        SELECT r."FIO"
+        INTO curr_employee_fio
+        FROM "ResponsibleSotrud" r
+        WHERE r."PK_Company" = company_id;
 
         -- получаем текущие показания
         SELECT SUM(lw."Indecator")
@@ -83,8 +115,10 @@ BEGIN
 
         IF curr_water_emission + NEW."Indecator" > company_norm_water_emission
             OR curr_water_emission IS NULL AND NEW."Indecator" > company_norm_water_emission THEN
-            INSERT INTO "Incidents" ("PK_LogWater", "PK_Company")
-            VALUES (NEW."PK_LogWater", company_id);
+            INSERT INTO "Incidents" (incident_date, log_water, log_gas, company_name, founder_fio,
+                                     responsible_employee_fio, device_serial_number)
+            VALUES (current_date, NEW."Indecator", null, curr_company_name, curr_founder_fio, curr_employee_fio,
+                    curr_device_serial_number);
         END IF;
     END;
     RETURN NEW;
@@ -429,4 +463,64 @@ BEGIN
                 END LOOP;
         END LOOP;
 END;
-$$ LANGUAGE plpgsql
+$$ LANGUAGE plpgsql;
+
+-- Удаление устройства по id
+CREATE OR REPLACE PROCEDURE delete_device_cascade(device_id integer)
+AS
+$$
+DECLARE
+    sensor_gas_id   INTEGER;
+    sensor_water_id INTEGER;
+BEGIN
+    DELETE FROM "LogWater" WHERE "PK_Device" = device_id;
+    DELETE FROM "LogGas" WHERE "PK_Device" = device_id;
+
+    DELETE FROM "Device" WHERE "PK_Device" = device_id;
+
+    SELECT "PK_SensorGase"
+    INTO sensor_gas_id
+    FROM "Device"
+    WHERE "PK_Device" = device_id;
+    IF sensor_gas_id IS NOT NULL THEN
+        DELETE FROM "SensorGas" WHERE "PK_SensorGase" = sensor_gas_id;
+    END IF;
+
+    SELECT "PK_SensorWater"
+    INTO sensor_water_id
+    FROM "Device"
+    WHERE "PK_Device" = device_id;
+    IF sensor_water_id IS NOT NULL THEN
+        DELETE FROM "SensorWater" WHERE "PK_SensorWater" = sensor_water_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Удаление компании по id
+CREATE OR REPLACE PROCEDURE delete_company_cascade(company_id integer)
+AS
+$$
+DECLARE
+    devices_ids INTEGER[];
+BEGIN
+    DELETE FROM "Founders" WHERE "PK_Company" = company_id;
+    DELETE FROM "ResponsibleSotrud" WHERE "PK_Company" = company_id;
+    DELETE FROM "Type_Company-Company" WHERE "PK_Company" = company_id;
+
+    SELECT ARRAY(
+                   SELECT "PK_Device"
+                   FROM "Device"
+                   WHERE "PK_Company" = company_id)
+    INTO devices_ids;
+    IF array_length(devices_ids, 1) IS NOT NULL THEN
+        FOR i IN 1..array_length(devices_ids, 1)
+            LOOP
+                CALL delete_device_cascade(devices_ids[i]);
+            END LOOP;
+    END IF;
+
+    DELETE FROM "Company" WHERE "PK_Company" = company_id;
+END;
+$$ LANGUAGE plpgsql;
+

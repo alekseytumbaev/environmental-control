@@ -346,19 +346,17 @@ ALTER TABLE "LogGas"
             ON UPDATE NO ACTION
 ;
 
-
 CREATE TABLE "Incidents"
 (
     "PK_Incident" Serial NOT NULL,
-    "PK_LogWater" Integer,
-    "PK_LogGas"   Integer,
-    "PK_Company"  Integer,
-    CONSTRAINT "PK_Incidents" PRIMARY KEY ("PK_Incident"),
-    CONSTRAINT "Relationship33" FOREIGN KEY ("PK_LogWater") REFERENCES "LogWater" ("PK_LogWater")
-        ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
-    CONSTRAINT "Relationship34" FOREIGN KEY ("PK_LogGas") REFERENCES "LogGas" ("PK_LogGas")
-        ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
-    CONSTRAINT "Relationship35" FOREIGN KEY ("PK_Company") REFERENCES "Company" ("PK_Company") ON DELETE NO ACTION
+    "incident_date" Date,
+    "log_water" real,
+    "log_gas"   real,
+    "company_name"  varchar(50),
+    "founder_fio"  varchar(100),
+    "responsible_employee_fio" varchar(100),
+    "device_serial_number" varchar(50),
+    CONSTRAINT "PK_Incidents" PRIMARY KEY ("PK_Incident")
 )
     WITH (
         autovacuum_enabled = true)
