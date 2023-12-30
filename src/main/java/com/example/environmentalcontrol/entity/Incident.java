@@ -5,13 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "`Incidents`")
@@ -27,15 +27,24 @@ public class Incident {
     @EqualsAndHashCode.Include
     private Integer id;
 
-    @ManyToOne
-    @JoinColumn(name = "`PK_Company`")
-    private Company company;
+    @Column(name = "`incident_date`")
+    private LocalDate incidentDate;
 
-    @ManyToOne
-    @JoinColumn(name = "`PK_LogGas`")
-    private LogGas logGas;
+    @Column(name = "`log_water`")
+    private Double logWater;
 
-    @ManyToOne
-    @JoinColumn(name = "`PK_LogWater`")
-    private LogWater logWater;
+    @Column(name = "`log_gas`")
+    private Double logGas;
+
+    @Column(name = "`company_name`")
+    private String companyName;
+
+    @Column(name = "`founder_fio`")
+    private String founderFio;
+
+    @Column(name = "`responsible_employee_fio`")
+    private String responsibleEmployeeFio;
+
+    @Column(name = "`device_serial_number`")
+    private String deviceSerialNumber;
 }

@@ -1,11 +1,14 @@
 package com.example.environmentalcontrol.repository;
 
+import com.example.environmentalcontrol.entity.SensorGas;
 import com.example.environmentalcontrol.entity.SensorWater;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.query.Procedure;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface SensorWaterRepository extends JpaRepository<SensorWater, Integer> {
     /**
@@ -24,4 +27,10 @@ public interface SensorWaterRepository extends JpaRepository<SensorWater, Intege
             @Param("company_id") Integer companyId
     );
 
+    @Query(value = """
+            SELECT s.* FROM "SensorWater" s
+            JOIN public."Device" D on s."PK_SensorWater" = D."PK_SensorGase"
+            WHERE d."PK_Company" = :company_id
+            """, nativeQuery = true)
+    List<SensorWater> findAllByCompanyId(@Param("company_id") int companyId);
 }

@@ -9,7 +9,7 @@ public interface IncidentRepository extends JpaRepository<Incident, Integer> {
 
     /**
      * Получить информацию о всех превышениях норм в компании
-     * @param id id компании
+     * @param companyName наименование компании
      */
-    List<Incident> findAllByCompany_Id(Integer id);
+    List<Incident> findAllByCompanyName(String companyName);
 }

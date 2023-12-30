@@ -95,4 +95,12 @@ public interface CompanyRepository extends JpaRepository<Company, Integer> {
      */
     @Procedure(procedureName = "generate_logs")
     void generateLogsForCompany(@Param("company_id") Integer companyId);
+
+    /**
+     * Удаление компании и связанных с ней работников и устройств.
+     *
+     * @param companyId id компании, которую нужно удалить
+     */
+    @Procedure(procedureName = "delete_company_cascade")
+    void deleteCompanyCascade(@Param("company_id") Integer companyId);
 }
